@@ -36,8 +36,8 @@ SSRCS   := $(shell find $(SRCDIR) -name '*.S'   | sort)
 ASMSRCS := $(shell find $(SRCDIR) -name '*.asm' | sort)
 
 OBJS := $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.c.o,$(CSRCS)) \
-        $(patsubst $(SRCDIR)/%.S,$(OBJDIR)/%.S.o,$(SSRCS)) \
-        $(patsubst $(SRCDIR)/%.asm,$(OBJDIR)/%.asm.o,$(ASMSRCS))
+	$(patsubst $(SRCDIR)/%.S,$(OBJDIR)/%.S.o,$(SSRCS)) \
+	$(patsubst $(SRCDIR)/%.asm,$(OBJDIR)/%.asm.o,$(ASMSRCS))
 
 DEPS := $(OBJS:.o=.d)
 
@@ -131,25 +131,25 @@ compdb: $(COMPDB)
 $(COMPDB): Makefile $(CSRCS) $(SSRCS)
 	@printf '[\n' > $@
 	@sep=''; \
-	emit() { \
-	  src=$$1; obj=$$2; shift 2; \
-	  printf '%b  {\n' "$$sep" >> $@; \
-	  printf '    "directory": "%s",\n' '$(CURDIR)' >> $@; \
-	  printf '    "file": "%s",\n' "$$src" >> $@; \
-	  printf '    "output": "%s",\n' "$$obj" >> $@; \
-	  printf '    "arguments": [' >> $@; \
-	  asep=''; \
-	  for a in "$$@"; do printf '%s"%s"' "$$asep" "$$a" >> $@; asep=', '; done; \
-	  printf ']\n  }' >> $@; \
-	  sep=',\n'; \
-	}; \
-	for src in $(CSRCS); do \
-	  rel=$${src#$(SRCDIR)/}; \
-	  emit "$$src" "$(OBJDIR)/$$rel.o" $(CC) $(CFLAGS) -c "$$src" -o "$(OBJDIR)/$$rel.o"; \
-	done; \
-	for src in $(SSRCS); do \
-	  rel=$${src#$(SRCDIR)/}; \
-	  emit "$$src" "$(OBJDIR)/$$rel.o" $(AS) $(ASFLAGS) -c "$$src" -o "$(OBJDIR)/$$rel.o"; \
-	done; \
-	printf '\n]\n' >> $@
+		emit() { \
+		src=$$1; obj=$$2; shift 2; \
+		printf '%b  {\n' "$$sep" >> $@; \
+		printf '    "directory": "%s",\n' '$(CURDIR)' >> $@; \
+		printf '    "file": "%s",\n' "$$src" >> $@; \
+		printf '    "output": "%s",\n' "$$obj" >> $@; \
+		printf '    "arguments": [' >> $@; \
+		asep=''; \
+		for a in "$$@"; do printf '%s"%s"' "$$asep" "$$a" >> $@; asep=', '; done; \
+		printf ']\n  }' >> $@; \
+		sep=',\n'; \
+		}; \
+		for src in $(CSRCS); do \
+		rel=$${src#$(SRCDIR)/}; \
+		emit "$$src" "$(OBJDIR)/$$rel.o" $(CC) $(CFLAGS) -c "$$src" -o "$(OBJDIR)/$$rel.o"; \
+		done; \
+		for src in $(SSRCS); do \
+		rel=$${src#$(SRCDIR)/}; \
+		emit "$$src" "$(OBJDIR)/$$rel.o" $(AS) $(ASFLAGS) -c "$$src" -o "$(OBJDIR)/$$rel.o"; \
+		done; \
+		printf '\n]\n' >> $@
 	@echo "wrote $@"
