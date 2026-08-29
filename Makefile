@@ -13,9 +13,15 @@ OBJDIR  := $(BUILD)/obj
 KERNEL  := $(BUILD)/kernel
 ISO     := $(BUILD)/$(NAME).iso
 
-CC   := gcc
-AS   := gcc
-LD   := ld
+# Prefer an x86_64-elf cross toolchain when one is installed; fall back to the
+# host tools otherwise. The freestanding flags below make the host GCC usable,
+# but a real cross compiler keeps host defaults (PIE, libc, stack protector)
+# out of the build entirely.
+XPREFIX := x86_64-elf-
+
+CC   := $(shell command -v $(XPREFIX)gcc 2>/dev/null || echo gcc)
+AS   := $(CC)
+LD   := $(shell command -v $(XPREFIX)ld  2>/dev/null || echo ld)
 NASM := nasm
 
 # Every directory under src/ becomes an include path, so headers are found
@@ -105,6 +111,8 @@ run: $(ISO)
 # ------------------------------------------------------------------- extras
 
 print:
+	@echo "cc            : $(CC)"
+	@echo "ld            : $(LD)"
 	@echo "linker script : $(LDSCRIPT)"
 	@echo "include dirs  : $(INCDIRS)"
 	@echo "sources       :"

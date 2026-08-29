@@ -1,4 +1,3 @@
-#include <stdbool.h>
 #include <limine.h>
 
 __attribute__((used, section(".limine_requests")))
@@ -19,7 +18,7 @@ static void hcf(void)
 
 void kernel_main(void)
 {
-	if (LIMINE_BASE_REVISION_SUPPORTED == false) {
+	if (LIMINE_BASE_REVISION_SUPPORTED == 0) {
 		hcf();
 	}
 
