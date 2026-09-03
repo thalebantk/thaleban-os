@@ -1,10 +1,15 @@
 #include <limine.h>
+#include <stddef.h>
+
 #include <console/console.h>
 #include <cpu/gdt.h>
-#include <klib/kprintf.h>
+#include <cpu/idt.h>
+#include <cpu/io.h>
+#include <cpu/isr.h>
 #include <drivers/framebuffer.h>
+#include <drivers/pic.h>
 #include <font/font.h>
-#include <stddef.h>
+#include <klib/kprintf.h>
 
 __attribute__((used, section(".limine_requests")))
 static volatile LIMINE_BASE_REVISION(3);
@@ -22,6 +27,24 @@ static void hcf(void)
 	}
 }
 
+static void on_breakpoint(struct registers *regs)
+{
+	kprintf("  handler ran: vector %llu (%s), resume rip %p\n",
+		(unsigned long long)regs->int_no,
+		isr_exception_name(regs->int_no), (void *)regs->rip);
+	return;
+}
+
+static void on_key(struct registers *regs)
+{
+	uint8_t scancode = inb(0x60);
+
+	kprintf("  irq1 -> vector %llu  scancode %#04x (%s)\n",
+		(unsigned long long)regs->int_no, scancode,
+		(scancode & 0x80) ? "release" : "press");
+	return;
+}
+
 void kernel_main(void)
 {
 	if (LIMINE_BASE_REVISION_SUPPORTED == 0) {
@@ -33,46 +56,41 @@ void kernel_main(void)
 	console_init();
 	console_clear();
 
-	uint32_t accent = framebuffer_make_color(120, 200, 255);
-	uint32_t fg = framebuffer_make_color(220, 220, 220);
 	uint32_t bg = framebuffer_make_color(16, 18, 24);
+	uint32_t fg = framebuffer_make_color(220, 220, 220);
+	uint32_t accent = framebuffer_make_color(120, 200, 255);
 
 	console_set_color(accent, bg);
 	kprintf("thaleban-os\n\n");
 	console_set_color(fg, bg);
 
 	gdt_init();
+	isr_init();
 
-	/* Read the state back out of the CPU: sgdt reports the table the
-	 * hardware is actually using, and str the loaded task register. */
 	struct {
 		uint16_t limit;
 		uint64_t base;
 	} __attribute__((packed)) live;
-	uint16_t cs, ss, tr;
+	asm volatile ("sidt %0" : "=m" (live));
 
-	asm volatile ("sgdt %0" : "=m" (live));
-	asm volatile ("movw %%cs, %0" : "=r" (cs));
-	asm volatile ("movw %%ss, %0" : "=r" (ss));
-	asm volatile ("str %0" : "=r" (tr));
+	kprintf("idtr : base %p  limit %u (%u entries)\n",
+		(void *)live.base, live.limit,
+		(unsigned)(live.limit + 1) / 16);
+	kprintf("pic  : master mask %#04x  slave mask %#04x\n",
+		inb(0x21), inb(0xa1));
 
-	unsigned count = (unsigned)(live.limit + 1) / 8;
+	isr_register_handler(3, on_breakpoint);
+	isr_register_handler(PIC_REMAP_BASE + PIC_IRQ_KEYBOARD, on_key);
 
-	kprintf("gdtr     : base %p  limit %u (%u entries)\n",
-		(void *)live.base, live.limit, count);
-	kprintf("selectors: cs=%#04x ss=%#04x tr=%#04x\n", cs, ss, tr);
-	kprintf("\n");
+	kprintf("\nsoftware interrupt:\n");
+	asm volatile ("int3");
+	kprintf("  iretq returned to kernel_main\n");
 
-	static const char *const names[] = {
-		"null", "kernel code", "kernel data",
-		"user data", "user code", "tss (low)", "tss (high)",
-	};
-	const uint64_t *desc = (const uint64_t *)live.base;
+	pic_unmask(PIC_IRQ_KEYBOARD);
+	kprintf("\npic  : master mask %#04x after unmasking irq1\n", inb(0x21));
 
-	for (unsigned i = 0; i < count; i++) {
-		kprintf("  [%u] %#018llx  %s\n", i,
-			(unsigned long long)desc[i], names[i]);
-	}
+	isr_enable();
+	kprintf("interrupts enabled, waiting for keys\n");
 
 	hcf();
 }
