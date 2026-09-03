@@ -1,5 +1,6 @@
 #include <limine.h>
 #include <drivers/framebuffer.h>
+#include <font/font.h>
 
 __attribute__((used, section(".limine_requests")))
 static volatile LIMINE_BASE_REVISION(3);
@@ -24,26 +25,21 @@ void kernel_main(void)
 	}
 
 	framebuffer_init();
-	uint32_t COLOR[3];
+	font_init();
 
-	COLOR[0] = framebuffer_make_color(255, 0, 0);
-	COLOR[1] = framebuffer_make_color(0, 255, 0);
-	COLOR[2] = framebuffer_make_color(0, 0, 255);
+	uint32_t bg = framebuffer_make_color(16, 18, 24);
+	uint32_t fg = framebuffer_make_color(220, 220, 220);
+	uint32_t accent = framebuffer_make_color(120, 200, 255);
 
-	int color_count = 0;
-	while (1)
-	{
-		for (uint64_t x = 0; x < fb_width(); x++)
-		{
-			for (uint64_t y = 0; y < fb_height(); y++)
-			{
-				framebuffer_put_pixel(x,  y, COLOR[color_count]);
-			}
-		}
+	fb_clear(bg);
 
-		if (color_count < 3) color_count++;
-		else color_count = 0;
-	}
+	fb_puts(font_width(), font_height(), "thaleban-os", accent, bg);
+	fb_puts(font_width(), font_height() * 3,
+		"Terminus 14x28, PSF2, linked into the kernel image.\n"
+		"abcdefghijklmnopqrstuvwxyz\n"
+		"ABCDEFGHIJKLMNOPQRSTUVWXYZ\n"
+		"0123456789 !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~",
+		fg, bg);
 
 	hcf();
 }

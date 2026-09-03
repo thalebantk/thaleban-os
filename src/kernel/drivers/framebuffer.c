@@ -2,6 +2,7 @@
 #include <stddef.h>
 
 #include <drivers/framebuffer.h>
+#include <font/font.h>
 
 static struct limine_framebuffer *fb = NULL;
 
@@ -42,4 +43,81 @@ void framebuffer_put_pixel(uint64_t x, uint64_t y, uint32_t color)
 
 	volatile uint32_t *pixels = (volatile uint32_t *)fb->address;
 	pixels[y * (fb->pitch / 4) + x] = color;
+}
+
+void fb_clear(uint32_t color)
+{
+	if (fb == NULL) {
+		return;
+	}
+
+	volatile uint32_t *pixels = (volatile uint32_t *)fb->address;
+	uint64_t stride = fb->pitch / 4;
+
+	for (uint64_t y = 0; y < fb->height; y++) {
+		for (uint64_t x = 0; x < fb->width; x++) {
+			pixels[y * stride + x] = color;
+		}
+	}
+	return;
+}
+
+void fb_draw_char(uint64_t x, uint64_t y, char c, uint32_t fg, uint32_t bg)
+{
+	const uint8_t *glyph = font_glyph(c);
+	if (glyph == NULL) {
+		return;
+	}
+
+	uint32_t width = font_width();
+	uint32_t height = font_height();
+	uint32_t stride = font_stride();
+
+	for (uint32_t row = 0; row < height; row++) {
+		const uint8_t *bits = glyph + (uint64_t)row * stride;
+
+		for (uint32_t col = 0; col < width; col++) {
+			uint8_t set = bits[col / 8] & (0x80u >> (col % 8));
+			framebuffer_put_pixel(x + col, y + row, set ? fg : bg);
+		}
+	}
+	return;
+}
+
+void fb_puts(uint64_t x, uint64_t y, const char *s, uint32_t fg, uint32_t bg)
+{
+	uint32_t width = font_width();
+	uint32_t height = font_height();
+
+	if (s == NULL || width == 0 || height == 0) {
+		return;
+	}
+
+	uint64_t origin = x;
+
+	while (*s != '\0') {
+		char c = *s++;
+
+		if (c == '\n') {
+			x = origin;
+			y += height;
+			continue;
+		}
+		if (c == '\r') {
+			x = origin;
+			continue;
+		}
+
+		if (x + width > fb_width()) {
+			x = origin;
+			y += height;
+		}
+		if (y + height > fb_height()) {
+			return;
+		}
+
+		fb_draw_char(x, y, c, fg, bg);
+		x += width;
+	}
+	return;
 }
