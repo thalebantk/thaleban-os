@@ -12,6 +12,10 @@ uint32_t framebuffer_make_color(uint8_t r, uint8_t g, uint8_t b);
 void framebuffer_put_pixel(uint64_t x, uint64_t y, uint32_t color);
 void fb_clear(uint32_t color);
 
+/* Shifts the whole framebuffer up by `pixels` rows and fills the exposed
+ * band at the bottom with `fill`. */
+void fb_scroll_up(uint64_t pixels, uint32_t fill);
+
 /* Text rendering. Both draw opaquely: set pixels get fg, clear pixels get bg.
  * (x, y) is the top-left corner of the character cell. Glyphs come from the
  * font module, so font_init() must have run first. */

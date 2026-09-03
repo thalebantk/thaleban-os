@@ -121,3 +121,30 @@ void fb_puts(uint64_t x, uint64_t y, const char *s, uint32_t fg, uint32_t bg)
 	}
 	return;
 }
+
+void fb_scroll_up(uint64_t pixels, uint32_t fill)
+{
+	if (fb == NULL || pixels == 0) {
+		return;
+	}
+	if (pixels >= fb->height) {
+		fb_clear(fill);
+		return;
+	}
+
+	volatile uint32_t *px = (volatile uint32_t *)fb->address;
+	uint64_t stride = fb->pitch / 4;
+
+	for (uint64_t y = 0; y + pixels < fb->height; y++) {
+		for (uint64_t x = 0; x < fb->width; x++) {
+			px[y * stride + x] = px[(y + pixels) * stride + x];
+		}
+	}
+
+	for (uint64_t y = fb->height - pixels; y < fb->height; y++) {
+		for (uint64_t x = 0; x < fb->width; x++) {
+			px[y * stride + x] = fill;
+		}
+	}
+	return;
+}
